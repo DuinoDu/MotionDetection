@@ -1,3 +1,18 @@
+# qmake files
+Makefile
+Makefile.Debug
+Makefile.Release
+*.pro.user
+release
+release/*
+
+# Visual Studio files
+*.sdf
+*.sln
+*.v12.suo
+*.vcxproj
+*.vcxproj.filters
+
 # Compiled Object files
 *.slo
 *.lo

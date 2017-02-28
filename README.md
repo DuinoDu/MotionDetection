@@ -1,2 +1,2 @@
 # MotionDetection
-Detection specific motion in video
+Detect specific motion in video

@@ -1,4 +1,4 @@
-TEMPLATE = app
+TEMPLATE = lib
 CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
@@ -6,30 +6,26 @@ TARGET = MotionDetection
 INCLUDEPATH += .
 DEFINES += USE_OPENCV CPU_ONLY
 
-contains(TEMPLATE, app){ SOURCES += main.cpp }
-#contains(TEMPLATE, lib) {
-#SOURCES += interface.cpp
-#HEADERS += interface.h
-#}
-
 SOURCES += \
-    motionproposal.cpp \
-    motionclassification.cpp \
-    objectdetection.cpp \
-    objecttrack.cpp \
-    motiondetection.cpp \
-    actionrecognition.cpp
+    src/motionproposal.cpp \
+    src/objectdetection.cpp \
+    src/objecttrack.cpp \
+    src/motiondetection.cpp \
+    src/actionrecognition.cpp \
+	src/interface.cpp \
+    src/log.cpp
 
 HEADERS += \
-    motionproposal.h \
-    motionclassification.h \
-    objectdetection.h \
-    objecttrack.h \
-    motiondetection.h \
-    common.h \
-    actionrecognition.h
+    include/motionproposal.h \
+    include/objectdetection.h \
+    include/objecttrack.h \
+    include/motiondetection.h \
+    include/common.h \
+    include/actionrecognition.h \
+	include/interface.h \
+    include/log.h
 
-win32{ HEADERS += headlayer.h}
+win32{ HEADERS += include/headlayer.h}
 
 HEADERS += \
     mtcnn/caffeplus.h \
@@ -146,4 +142,4 @@ INCLUDEPATH += $${LIBS_PATH}\libigl\include
 #QMAKE_CXXFLAGS += -pg
 #LIBS += -pg
 
-w#message($${LIBS})
+#message($${LIBS})

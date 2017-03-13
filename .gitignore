@@ -3,15 +3,25 @@ Makefile
 Makefile.Debug
 Makefile.Release
 *.pro.user
+.qmake.stash
 release
 release/*
+debug
+debug/*
+build-*
+
+
 
 # Visual Studio files
 *.sdf
 *.sln
 *.v12.suo
 *.vcxproj
+*.vcxproj.user
 *.vcxproj.filters
+*.pdb
+*.idb
+*.opensdf
 
 # Compiled Object files
 *.slo

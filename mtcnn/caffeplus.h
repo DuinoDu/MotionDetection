@@ -16,7 +16,9 @@
 
 using namespace std;
 using namespace Eigen;
-using namespace cv;
+
+//using namespace cv;
+using cv::Mat;
 
 void convertToMatrix(caffe::Blob<float>* prob, caffe::Blob<float>* conv, MatrixXd &map, vector<MatrixXd> &reg);
 

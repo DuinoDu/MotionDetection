@@ -1,46 +1,43 @@
-#ifndef ACTIONRECOGNITION_H
-#define ACTIONRECOGNITION_H
+#ifndef ACTIONRECOGNITION_HPP
+#define ACTIONRECOGNITION_HPP
 
-#include "common.h"
+#include "objectdetection.h"
 #include "objecttrack.h"
-#include "./mtcnn/mtcnn.h"
 
-
-struct DetectROI{
-    vector<Rect2d> faceROI;
-};
+using cv::Rect2d;
 
 class ActionRecognition
 {
-public:
-    ActionRecognition();
-	void detect(const Mat& frame, ObjectTrack *tracker, FaceDetector* faceDetector);
-	DetectROI detectROI;
-	void setStandup_t(double param){ standup_t = param; }
-	void setSitdown_t(double param){ sitdown_t = param; }
-
-private:
-    
-
-    int _getStandupDisTh(Rect2d box);
-    int _getSitdownDisTh(Rect2d box);
-
-	int _isBoxInStanupROI(const Rect2d& box);
-	int _isBoxInStanupROI(const Rect2d& box, const double threshold);
-	double _overlap(Rect2d box1, Rect2d box2);
-    int _getStandupROI_index(Rect2d& box);
-	int frame_cnt = 0;
-
-	// parameter
-	double x_padding_standup = 0.5;
-	double x_padding_sitdown = 1;
-	double standup_t = 1;
-    double sitdown_t = 0.5;
-	int check_period = 8;  // check if face exists in region
-	double padding_while_standing_x = 10;
-	double padding_while_standing_y = 10;
-	int max_standup = 2;
-	
 };
 
-#endif // ACTIONRECOGNITION_H
+class StandupRecognition : public ActionRecognition
+{
+public:
+    void read(const FileNode& fn);
+    void classify(const Mat& input);
+    void setObjectDetector(ObjectDetection* _p){ if(_p!=nullptr) detector = _p; }
+    void setObjectTracker(ObjectTrack* _p){ if(_p!=nullptr) tracker = _p; }
+    vector<Rect> getObjects(){ return objects; }
+
+private:
+    ObjectDetection* detector;
+    ObjectTrack* tracker;
+    vector<Rect> objects;
+    int frame_cnt = 0;
+
+    void checkObjectExist(const Mat& input);
+    int getStandupDisTh(const Rect2d& box);
+    int getStandupROI_index(const Rect2d& box);
+
+    /* parameters */
+    double x_paddingscale_standup = 0.5;
+    double standup_threshold_scale = 1;
+    double x_paddingscale_while_standing = 0.5;
+    double y_paddingscale_while_standing = 0.3;
+    int check_frames = 8;  // check if face exists in region
+    int max_standup = 2;
+};
+
+Ptr<StandupRecognition> createStandupRecognition();
+
+#endif

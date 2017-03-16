@@ -12,7 +12,7 @@ void bbreg(MatrixXd &boundingbox, MatrixXd &reg)
 #endif
 
     if (reg.rows() == 1){
-		cout << "reg.rows == 1" << endl;
+		//cout << "reg.rows == 1" << endl;
 	}
 	int numOfBB = boundingbox.rows();
     Matrix<double, Dynamic, 1> w = boundingbox.col(2).cast<double>() - boundingbox.col(0).cast<double>() + MatrixXd::Ones(numOfBB, 1);

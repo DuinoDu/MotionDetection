@@ -1,23 +1,18 @@
 #include "../include/motiondetection.h"
-
 #include "../include/log.h"
+
+#ifdef _WIN32
+#include "windows.h"
+#endif
 
 MotionDetection::MotionDetection()
 {
-    proposal = new MotionProposal;
-    faceDetection = new ObjectDetection;
-    faceTrack = new ObjectTrackVertical;
-    //faceTrack = new ObjectTrack;
-    faceTrack->setType("KCF");
-    recognition = new ActionRecognition;
-}
-
-MotionDetection::~MotionDetection()
-{
-    delete proposal;
-    delete faceDetection;
-    delete faceTrack;
-    delete recognition;
+    proposal = createMotionProposal(FRAMEDIFF);
+    faceDetector = createObjectDetection();
+    faceTracker = createObjectTrack();
+    recognition = createStandupRecognition();
+    recognition->setObjectDetector(faceDetector);
+    recognition->setObjectTracker(faceTracker);
 }
 
 void MotionDetection::setParam(string paramName, float value)
@@ -27,34 +22,36 @@ void MotionDetection::setParam(string paramName, float value)
     if (paramName == "RoomHeight"){
 	}
 	if (paramName == "standup_distance"){
-		recognition->setStandup_t((double)value);
 	}
 	if (paramName == "sitdown_distance"){
-		recognition->setSitdown_t((double)value);
 	}
+	CV_UNUSED(value);
 }
 void MotionDetection::setParam(string paramName, string value)
 {
     if (paramName == "CaffemodelPath"){
-        faceDetection->setCaffemodelPath(value);
+        faceDetector->setCaffeModelPath(value);
     }
+	if (paramName == "ConfigPath"){
+		readConfig(value);
+	}
 }
 void MotionDetection::setParam(string paramName, vector<int> &value)
 {
     if(paramName == "StudentRegion"){
             assert(value.size() == 8);
-            vector<Point2d> region;
+            vector<Point> region;
             for(int i = 0; i < 4; ++i){
-			    double x = value[2*i];   // I am a shabi.
-                double y = value[2*i+1];
-                region.push_back(Point2d(x, y));
+			    int x = value[2*i];   // I am a shabi.
+                int y = value[2*i+1];
+                region.push_back(Point(x, y));
             }
-            proposal->setStudentRegion(region);
+            proposal->setRegion(region);
     }
 }
 void MotionDetection::showWindows(bool flag1, bool flag2)
 {
-    proposal->showWindow = flag1;
+	proposal->setShowWindow(flag1);
     this->showWindow = flag2;
 }
 void MotionDetection::setCallback(MyFun _myFun, void *_context)
@@ -73,6 +70,17 @@ void MotionDetection::setFrame(uchar* data, int height, int width, int length)
 	detect(frame);
 }
 
+void MotionDetection::readConfig(const string& configPath)
+{
+	string configFile = configPath + "\\config.xml";
+    cv::FileStorage fsRead(configFile, cv::FileStorage::READ);
+    cv::FileNode config = fsRead.root();
+    proposal->read(config);
+    faceDetector->read(config);
+    faceTracker->read(config);
+    recognition->read(config);
+}
+
 void MotionDetection::detect(Mat& frame)
 {
     if (frame.isContinuous() && !frame.empty()){
@@ -81,33 +89,32 @@ void MotionDetection::detect(Mat& frame)
         Mat frame_gray;
         cv::cvtColor(frame, frame_gray, cv::COLOR_BGR2GRAY);
 
-        // get motion regions
 		vector<Rect> proposals;
+		vector<vector<int>> faceBoxes;
+
+        // get motion regions
 		proposal->getProposal(frame_gray, proposals);
         //cout << "Contour size:" << contours.size() << endl;
 
 		if (proposals.size() > 0){
 			vector<Rect> new_proposals;
 			for (auto rect : proposals){
-			   if (_isTrackingObject(rect, faceTrack->getBoxes()))  // if need to remove contours that contain tracking objects???
-				   continue;
-			   if (rect.width < minProposal_w || rect.width > maxProposal_w 
-				   || rect.height < minProposal_h || rect.height > maxProposal_h)
-				   continue;
-			   new_proposals.push_back(rect);
-            }
+				if (_isTrackingObject(rect, faceTracker->getBoxes()))  // if need to remove contours that contain tracking objects???
+					continue;
+				new_proposals.push_back(rect);
+			}
 			proposals = new_proposals;
 
 			// detect and track face
-			vector<vector<int>> faceBoxes;
-            faceDetection->detect(frame, proposals, faceBoxes);
-            faceTrack->update(frame, faceBoxes);
-			recognition->detect(frame, faceTrack, faceDetection->get_faceDetector());
-			
-			for (auto box : recognition->detectROI.faceROI) {
-                result.push_back({(int)(box.x + box.width/2), (int)(box.y + box.height/2) });  // cost much time
-            }	
-        }
+			faceDetector->detect(frame, proposals, faceBoxes);
+		}
+
+        faceTracker->update(frame, faceBoxes);
+		recognition->classify(frame);
+		
+		for (auto box : recognition->getObjects()) {
+            result.push_back({(int)(box.x + box.width/2), (int)(box.y + box.height/2) });  // cost much time
+        }	
         _sendResult(result);
 
 		if (showWindow){
@@ -117,13 +124,13 @@ void MotionDetection::detect(Mat& frame)
             }
 
             // after faceDetection
-            //for (auto box : faceBoxes) rectangle(frame, Rect2d(box[0], box[1], box[2] - box[0], box[3] - box[1]), Scalar(0, 0, 255), 2);
+            //for (auto box : faceBoxes) rectangle(frame, Rect2d(box[0], box[1], box[2] - box[0], box[3] - box[1]), Scalar(0, 255, 0), 2);
 
             // after faceTrack
-            for (auto box : faceTrack->getBoxes()) rectangle(frame, box, Scalar(0, 0, 255), 2);
+            for (auto box : faceTracker->getBoxes()) rectangle(frame, box, Scalar(0, 0, 255), 3);
 
             // after recognition
-            for (auto box : recognition->detectROI.faceROI) rectangle(frame, box, Scalar(255, 255, 0), 3);
+            for (auto box : recognition->getObjects()) rectangle(frame, box, Scalar(255, 255, 0), 3);
 
             cv::imshow("img", frame);
         }
@@ -146,6 +153,7 @@ void MotionDetection::_sendResult(const vector<vector<int>>& result)
     if (px != NULL) free(px);
     if (py != NULL) free(py);
 }
+
 bool MotionDetection::_isTrackingObject(const cv::Rect2d &rect, const vector<cv::Rect2d> &objects)
 {
     bool flag = false;

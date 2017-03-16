@@ -13,6 +13,7 @@ typedef void (*_setMotionSize) (void* _detector, float standup, float sitdown);
 typedef void (*_setStudentRegion) (void *detector, int topleft_x, int topleft_y, int topright_x, int topright_y,
                                 int bottomleft_x, int bottomleft_y, int bottomright_x, int bottomright_y);
 typedef void (*_setCaffemodelPath) (void* detector, char* str);
+typedef void (*_setConfigPath) (void* detector, char* str);
 typedef void (*_setCallback) (void* detector, MyFun functionName, void* context);
 typedef void (*_setShowWindows) (void* detector, bool stage1, bool stage2);
 typedef void (*_setFrame) (void* _detector, unsigned char* data, int height, int width, int length);

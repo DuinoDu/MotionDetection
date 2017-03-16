@@ -41,7 +41,7 @@ void convertToVector(caffe::Blob<float>* prob, vector<double> &score)
     float* data = prob->mutable_cpu_data();
     data++;
     for (int i = 0; i < num; i++){
-        cout << *data << endl;
+        //cout << *data << endl;
         score.push_back(*data);
         data += 2;
     }

@@ -1,28 +1,31 @@
-#ifndef OBJECTDETECTION_H
-#define OBJECTDETECTION_H
+#ifndef OBJECTDETECTION_HPP
+#define OBJECTDETECTION_HPP
 
-#include "common.h"
-#include "./mtcnn/mtcnn.h"
+#include <opencv2/opencv.hpp>
+#include <vector>
 
-class ObjectDetection
+using std::vector;
+using std::string;
+using cv::Mat;
+using cv::Rect;
+using cv::Algorithm;
+using cv::FileNode;
+using cv::Ptr;
+using cv::makePtr;
+
+class ObjectDetection : public Algorithm
 {
 public:
-    ObjectDetection();
-    ~ObjectDetection();
-	void detect(Mat& frame, vector<Rect>& proposals, vector<vector<int>>& faces_box);
-    void setCaffemodelPath(string path);
-	FaceDetector* get_faceDetector(){ return faceDetector; }
+    virtual void read(const FileNode& fn) = 0;
+    virtual void detect(const Mat& input, vector<Rect>& proposals, vector<vector<int> >& object_box) = 0;
+    virtual void setCaffeModelPath(const string& path) = 0;
 
-private:
-    string model_path;
-    FaceDetector *faceDetector;
-	void _filter(vector<vector<int>>& faces_box);
-
-	// parameter
-	float t1 = 0.6;
-	float t2 = 0.7;
-	float t3 = 0.7;
-	float minsize = 10;
+protected:
+    void read_basic(const FileNode& fn);
+    void filter(vector<vector<int> >& object_box);
 };
 
-#endif // OBJECTDETECTION_H
+
+Ptr<ObjectDetection> createObjectDetection();
+
+#endif

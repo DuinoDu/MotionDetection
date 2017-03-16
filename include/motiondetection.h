@@ -14,7 +14,6 @@ class MotionDetection
 {
 public:
     MotionDetection();
-    ~MotionDetection();
 
     void setParam(string paramName, float value);
     void setParam(string paramName, string value);
@@ -30,14 +29,15 @@ private:
     void* context;
     bool showWindow = false;
 
+	void readConfig(const string& configPath);
     void detect(Mat& frame);
     void _updateParams();
     void _sendResult(const vector<vector<int>>& result);
 
-    MotionProposal *proposal;
-    ObjectDetection *faceDetection;
-    ObjectTrack *faceTrack;
-    ActionRecognition *recognition;
+    Ptr<MotionProposal> proposal;
+    Ptr<ObjectDetection> faceDetector;
+    Ptr<ObjectTrack> faceTracker;
+    Ptr<StandupRecognition> recognition;
 
     bool _isTrackingObject(const Rect2d& rect, const vector<Rect2d>& objects);
 	

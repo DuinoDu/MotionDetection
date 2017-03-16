@@ -1,134 +1,76 @@
 #include "../include/motionproposal.h"
-#include "../include/log.h"
+#include <opencv2/core.hpp>
+#include <list>
 
-MotionProposal::MotionProposal()
+#include <iostream>
+
+using namespace std;
+using cv::Size;
+using cv::makePtr;
+using cv::Moments;
+using cv::Scalar;
+using cv::FileNodeIterator;
+
+/**
+ * MotionProposal
+ */
+
+void MotionProposal::setImageSize(const int dst_w, const int dst_h, const int src_w, const int src_h)
 {
-    DISOptflow_type = cv::optflow::DISOpticalFlow::PRESET_ULTRAFAST;
-    optflower = cv::optflow::createOptFlow_DIS(DISOptflow_type);
-    optflower->setUseSpatialPropagation(use_spatial_propagation);
+    dst_width = dst_w;
+    dst_height = dst_h;
+    src_width = src_w;
+    src_height = src_h;
 }
-
-//void MotionProposal::getProposal(Mat& frame_gray, vector<vector<Point>>& contours)
-void MotionProposal::getProposal(Mat& frame_gray, vector<Rect>& proposals)
-{
-	proposals.clear(); 
-	vector<vector<Point>> contours;
-
-	frameSub(frame_gray, contours);
-    _studentInRegion(contours);
-
-	// convert vector<vector<Point>> to vector<Rect>
-	if (contours.size() > 0){
-		for (auto c : contours){
-			Rect rect;
-			rect = boundingRect(c);
-			proposals.push_back(rect);
-		}
-	}
-
-	// filter proposals, using nms,....
-	_filterProposals(proposals);
-
-	/*
-    if (showWindow){
-		cv::line(frame_gray, studentRegion[0], studentRegion[1], cv::Scalar(0,0,255), 2);
-		cv::line(frame_gray, studentRegion[1], studentRegion[3], cv::Scalar(0, 0, 255), 2);
-		cv::line(frame_gray, studentRegion[3], studentRegion[2], cv::Scalar(0, 0, 255), 2);
-		cv::line(frame_gray, studentRegion[2], studentRegion[0], cv::Scalar(0, 0, 255), 2);
-        drawContours(frame_gray, contours, -1, Scalar(255,255,0), 1);
-        cv::imshow("proposal", frame_gray);
-    }
-	*/
-}
-
-void MotionProposal::optflowDIS(Mat& frame_gray, vector<vector<Point>>& contours)
-{
-    if (!prev_gray.empty()){
-        // prev_gray , frame_gray => fy
-        Mat flow;
-        optflower->calc(prev_gray, frame_gray, flow);
-
-        vector<Mat> flow_vec;
-        flow_vec.resize(2);
-        split(flow, flow_vec);
-
-        Mat fy_up, fy_down;
-        cv::threshold(flow_vec[1], fy_up, flow_motion_threshold, 255, cv::THRESH_BINARY);
-        cv::threshold(flow_vec[1], fy_down, -1*flow_motion_threshold, 255, cv::THRESH_BINARY_INV);
-
-        cv::bitwise_or(fy_up, fy_down, fy);
-        fy.convertTo(fy, CV_8UC1);
-
-        //flow_vec[1].convertTo(debug_flow, CV_8UC1);
-        //debug_flow *= 50;
-
-        // fy => contours
-        assert(fy.type() == CV_8UC1);
-        cv::findContours(fy, contours, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
-
-        //cout << "before: " << contours.size() << endl;
-
-        vector<vector<Point>> new_contours;
-        //for (auto i = contours.begin(); i != contours.end(); ++i) {
-        for (size_t i = 0; i < contours.size(); i++){
-            // approximate a polygonal curve
-            approxPolyDP(contours[i], contours[i], 3, true);
-
-            // filter contours
-			if (contours[i].size() > minLength && contourArea(contours[i]) > minArea && contourArea(contours[i]) < maxArea) {
-                new_contours.push_back(contours[i]);
-            }
-        }
-        contours.resize(new_contours.size());
-        contours = new_contours;
-        //cout << "after: " << contours.size() << endl;
-    }
-    prev_gray = frame_gray.clone();
-}
-
-void MotionProposal::frameSub(Mat& frame_gray, vector<vector<Point>>& contours)
-{
-	prev_gray_s.push_back(frame_gray.clone());
-	if (prev_gray_s.size() > duration)
-		prev_gray_s.erase(prev_gray_s.begin());
-
-	if (prev_gray_s.size() == duration){
-		for (auto prev = prev_gray_s.begin(); prev != prev_gray_s.end(); ){
-			vector<vector<Point>> c;
-			cv::absdiff(frame_gray, *prev, diff_frame);
-			cv::threshold(diff_frame, diff_frame, absThreshold, 255, CV_THRESH_BINARY);
-			Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, Size(5, 5));
-			Mat closed;
-			cv::morphologyEx(diff_frame, closed, cv::MORPH_CLOSE, kernel);
-			cv::morphologyEx(closed, closed, cv::MORPH_OPEN, kernel);
-			cv::findContours(closed, c, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-			contours.insert(contours.end(), c.begin(), c.end());
-
-			for (int i = 0; i < interval; i++) prev++;
-		}
-	}
-}
-
-void MotionProposal::setStudentRegion(const vector<cv::Point2d>& points)
+void MotionProposal::setRegion(const vector<Point>& points)
 {
     assert(points.size() == 4);
-    studentRegion = points;
+    roiRegion = points;
 }
-
-void MotionProposal::_studentInRegion(vector<vector<Point>>& contours)
+void MotionProposal::setShowWindow(const bool _flag)
 {
+    cout << "set show window" << endl;
+    showWindow = _flag;
+}
+void MotionProposal::read_basic(const cv::FileNode& fn)
+{
+    //int dst_width, dst_height, src_width, src_height;
+    //vector<Point> roiRegion;
+    cout << "read MotionProposal config" << endl;
+    showWindow = (string)fn["showWindow"] == "true" ? true: false;
+    min_width = (int)fn["min_width_proposal"];
+    min_height = (int)fn["min_height_proposal"];
+    max_width = (int)fn["max_width_proposal"];
+    max_height = (int)fn["max_height_proposal"];
+}
+void MotionProposal::convert2Rect(const vector<vector<Point> >& contours, vector<Rect>& proposals)
+{
+    proposals.clear();
+    if (contours.size() > 0){
+        for (auto c : contours){
+            Rect rect;
+            rect = boundingRect(c);
+            proposals.push_back(rect);
+        }
+    }
+}
+void MotionProposal::filter_roiRegion(vector<vector<Point> >& contours)
+{
+    if (roiRegion.size() == 0)
+        return;
+
     vector<Point> centers;
     for( auto i : contours){
         Moments m = moments(i, false);
         centers.push_back(Point(m.m10/m.m00, m.m01/m.m00));
     }
     vector<Point> region;
-    region.push_back(Point(studentRegion[0].x, studentRegion[0].y));
-    region.push_back(Point(studentRegion[1].x, studentRegion[1].y));
-    region.push_back(Point(studentRegion[3].x, studentRegion[3].y));
-    region.push_back(Point(studentRegion[2].x, studentRegion[2].y));
+    region.push_back(Point(roiRegion[0].x, roiRegion[0].y));
+    region.push_back(Point(roiRegion[1].x, roiRegion[1].y));
+    region.push_back(Point(roiRegion[3].x, roiRegion[3].y));
+    region.push_back(Point(roiRegion[2].x, roiRegion[2].y));
 
-    vector<vector<Point>> new_contours;
+    vector<vector<Point> > new_contours;
     for(size_t i = 0; i < centers.size(); i++){
         if(pointPolygonTest(region, centers[i], false) > 0 ){
             new_contours.push_back(contours[i]);
@@ -136,20 +78,117 @@ void MotionProposal::_studentInRegion(vector<vector<Point>>& contours)
     }
     contours = new_contours;
 }
-
-void MotionProposal::setSize(int dst_w, int dst_h, int src_w, int src_h)
+void MotionProposal::filter_size(vector<Rect>& proposals)
 {
-    dst_width = dst_w;
-    dst_height = dst_h;
-    src_width = src_w;
-    src_height = src_h;
+    if (proposals.size() == 0)
+        return;
+    vector<Rect> new_p;
+    for(const auto rect : proposals){
+        if (rect.width > min_width && rect.width < max_width &&
+            rect.height > min_height && rect.height < max_height){
+            new_p.push_back(rect);
+        }
+    }
+    proposals = new_p;
+}
+void MotionProposal::filter_nested(vector<Rect>& proposals)
+{
+    if (proposals.size() == 0)
+        return;
+    vector<Rect> new_p;
+    for(const auto rect : proposals){
+        bool isNested = false;
+        for (auto other_rect : proposals){
+            if(other_rect.x == rect.x && other_rect.y == rect.y &&
+               other_rect.width == rect.width && other_rect.height == other_rect.height)
+                continue;
+            else{
+                if ( other_rect.contains(Point(rect.x, rect.y)) &&
+                     other_rect.contains(Point(rect.x+rect.width, rect.y)) &&
+                     other_rect.contains(Point(rect.x, rect.y+rect.height)) &&
+                     other_rect.contains(Point(rect.x+rect.width, rect.y+rect.height))){
+                    isNested = true;
+                    break;
+                }
+            }
+        }
+        if(!isNested) new_p.push_back(rect);
+    }
+    proposals = new_p;
 }
 
-void MotionProposal::_filterProposals(vector<Rect>& proposals)
+/**
+ * Frame Difference
+ */
+
+class FrameDiff : public MotionProposal
 {
-	_nms(proposals, nms_threshold);
+public:
+    void getProposal(InputArray input, vector<Rect>& proposals);
+    virtual void read(const FileNode& fn);
+private:
+    list<Mat> prev_gray_s;
+    Mat diff_frame;
+    void nms(vector<Rect>& proposals, const double nms_threshold);
+    double IOU(const Rect& r1, const Rect& r2);
+
+    /* parameter */
+    double absThreshold = 10;
+    int duration = 6;
+    int interval = 2;
+    double nms_threshold = 0.1;
+};
+void FrameDiff::getProposal(InputArray _input, vector<Rect>& proposals)
+{
+    CV_Assert(!_input.empty());
+    CV_Assert(_input.type() == CV_8UC1);
+    Mat input = _input.getMat();
+    vector<vector<Point> > contours;
+
+    // store prev images
+    prev_gray_s.push_back(input.clone());
+    if(prev_gray_s.size() > duration)
+        prev_gray_s.erase(prev_gray_s.begin());
+
+    // compute frame diff
+    if(prev_gray_s.size() == duration){
+        for (auto prev = prev_gray_s.begin(); prev != prev_gray_s.end();){
+			cv::absdiff(input, *prev, diff_frame);
+			cv::threshold(diff_frame, diff_frame, absThreshold, 255, CV_THRESH_BINARY);
+			Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, Size(5, 5));
+			Mat closed;
+			cv::morphologyEx(diff_frame, closed, cv::MORPH_CLOSE, kernel);
+            cv::morphologyEx(closed, closed, cv::MORPH_OPEN, kernel);
+
+            vector<vector<Point> > c;
+            cv::findContours(closed, c, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+            contours.insert(contours.end(), c.begin(), c.end());
+			for (int i = 0; i < interval; i++) prev++;
+        }
+    }
+
+    filter_roiRegion(contours);
+    convert2Rect(contours, proposals);
+    filter_size(proposals);
+    filter_nested(proposals);
+    nms(proposals, nms_threshold);
+
+    if (showWindow){
+        for (auto rect : proposals)
+            rectangle(input, rect, Scalar(255, 255, 0), 1);
+        cv::imshow("proposal", input);
+    }
 }
-void MotionProposal::_nms(vector<Rect>& proposals, double nms_threshold)
+void FrameDiff::read(const cv::FileNode &fn)
+{
+    read_basic(fn);
+    cout << "read FrameDiff config" << endl;
+    absThreshold = (double)fn["absThreshold"];
+    duration = (int)fn["duration"];
+    interval = (int)fn["interval"];
+    nms_threshold = (double)fn["nms_threshold"];
+}
+void FrameDiff::nms(vector<Rect>& proposals, const double nms_threshold)
 {
     vector<int> scores;
     for(auto i : proposals) scores.push_back(i.area());
@@ -180,7 +219,7 @@ void MotionProposal::_nms(vector<Rect>& proposals, double nms_threshold)
     }
     proposals = new_proposals;
 }
-double MotionProposal::IOU(const Rect& r1, const Rect& r2)
+double FrameDiff::IOU(const Rect& r1, const Rect& r2)
 {
     int x1 = max(r1.x, r2.x);
     int y1 = max(r1.y, r2.y);
@@ -191,4 +230,28 @@ double MotionProposal::IOU(const Rect& r1, const Rect& r2)
     double inter = w * h;
     double o = inter / (r1.area() + r2.area() - inter);
     return (o >= 0) ? o : 0;
+}
+
+
+/**
+ * Optical flow --- DIS
+ */
+
+class OptflowDIS : public MotionProposal
+{};
+
+Ptr<MotionProposal> createMotionProposal(int algorithm)
+{
+    switch (algorithm) {
+        case NO:
+            return makePtr<MotionProposal>();
+        case FRAMEDIFF:
+            return makePtr<FrameDiff>();
+        case DIS:
+            CV_Assert(false); 
+            return makePtr<MotionProposal>();
+        default:
+            CV_Assert(false);
+            return makePtr<MotionProposal>();
+    }
 }

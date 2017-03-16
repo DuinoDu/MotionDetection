@@ -1,57 +1,49 @@
-#ifndef MOTIONPROPOSAL_H
-#define MOTIONPROPOSAL_H
+#ifndef MOTIONPROPOSAL_HPP
+#define MOTIONPROPOSAL_HPP
 
-#include "common.h"
-#include <opencv2/optflow.hpp>
+#include <opencv2/opencv.hpp>
+#include <vector>
 
-class MotionProposal
+using std::vector;
+
+using cv::Mat;
+using cv::Rect;
+using cv::Algorithm;
+using cv::InputArray;
+using cv::Ptr;
+using cv::Point;
+using cv::FileNode;
+using cv::makePtr;
+
+#include <iostream>
+using std::cout;
+using std::endl;
+
+class MotionProposal : public Algorithm
 {
 public:
-    MotionProposal();
-	//void getProposal(Mat& frame_gray, vector<vector<Point>>& contours);
-	void getProposal(Mat& frame_gray, vector<Rect>& proposals);
-    void setSize(int dst_w, int dst_h, int src_w, int src_h);
-    void setStudentRegion(const vector<Point2d>& points);
-    bool showWindow = false;
+    void setImageSize(const int dst_w, const int dst_h, const int src_w, const int src_h);
+    void setRegion(const vector<Point>& points);
+    void setShowWindow(const bool);
+    virtual void getProposal(InputArray input, vector<Rect>& proposals){ cout << "Please set proposal method" << endl;}
+    virtual void read(const FileNode& fn){ read_basic(fn);}
 
-private:
-    // dense optical flow DIS
-    void optflowDIS(Mat& frame_gray, vector<vector<Point>>& contours);
-    bool use_spatial_propagation = true; // fixed number of stripes
-    bool use_temporal_propagation = true;
-    int DISOptflow_type;
-    Ptr<cv::optflow::DISOpticalFlow> optflower;
-    Mat fy;
+protected:
+    void read_basic(const FileNode& fn);
+    void convert2Rect(const vector<vector<Point> >& contours, vector<Rect>& proposals);
+    void filter_roiRegion(vector<vector<Point> >& contours);
+    void filter_size(vector<Rect>& proposals);
+    void filter_nested(vector<Rect>& proposals);
 
-    list<Mat> prev_gray_s;
-	Mat prev_gray;
-    int dst_width;
-    int dst_height;
-    int src_width;
-    int src_height;
-    void _studentInRegion(vector<vector<Point>>& contours);
-    vector<Point2d> studentRegion;
-
-	void bgModel(Mat& frame_gray, vector<vector<Point>>& contours);
-
-	void frameSub(Mat& frame_gray, vector<vector<Point>>& contours);
-	Mat diff_frame;
-	void _filterProposals(vector<Rect>& proposals);
-	void _nms(vector<Rect>& proposals, double nms_threshold);
-	double IOU(const Rect& r1, const Rect& r2);
-
-	// parameter for contours
-	float flow_motion_threshold = 0.5; 
-	double maxArea = 50000;
-	double minArea = 20;
-	int minLength = 10;
-	
-	// parameter for absdiff
-	double absThreshold = 10;
-	int duration = 6;
-	int interval = 2;
-	double nms_threshold = 0.1;
-
+    /* parameter */
+    int dst_width, dst_height, src_width, src_height;
+    vector<Point> roiRegion;
+    bool showWindow;
+    int min_width, min_height, max_width, max_height;
 };
 
-#endif // MOTIONPROPOSAL_H
+enum PROPOSAL { FRAMEDIFF = 101, DIS = 102, NO = 100};
+
+Ptr<MotionProposal> createMotionProposal(int algorithm);
+
+#endif

@@ -18,5 +18,9 @@ using cv::Scalar;
 using cv::Size;
 using cv::TickMeter;
 using cv::Moments;
+using cv::Algorithm;
+using cv::FileNode;
+using cv::Ptr;
+using cv::makePtr;
 
 #endif // COMMON_H

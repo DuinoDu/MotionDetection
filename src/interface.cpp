@@ -52,8 +52,15 @@ __declspec(dllexport) void setStudentRegion(void* _detector,  int topleft_x, int
 __declspec(dllexport) void setCaffemodelPath(void* _detector, char* str)
 {
     MotionDetection * detector = (MotionDetection*)_detector;
-    std::string path(str);  //"D:/code/mtcnn/mtcnn/model"
+    std::string path(str); 
     detector->setParam("CaffemodelPath", path);
+}
+
+__declspec(dllexport) void setConfigPath(void* _detector, char* str)
+{
+    MotionDetection * detector = (MotionDetection*)_detector;
+    std::string path(str);  
+    detector->setParam("ConfigPath", path);
 }
 
 __declspec(dllexport) void setCallback(void* _detector,  MyFun functionName, void* context)
